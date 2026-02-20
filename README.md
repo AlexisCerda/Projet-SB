@@ -91,36 +91,28 @@ Rappel le programme dois être appelé avec un sudo
 Voici quelques explications/rappel sur les méthodes utilisé durant ce projet.
 
 Pour démmarrer le programme automatiquement : (/etc/systemd/system/virusdetector.service)
-    -Créer un service systemd qui lance le programme au démarrage de la machine :
+    - Créer un service systemd qui lance le programme au démarrage de la machine :
         # 1. Recharger les configurations de Systemd
         sudo systemctl daemon-reload
-
         # 2. Activer le lancement automatique au démarrage du PC
         sudo systemctl enable virusdetector.service
-
         # 3. Démarrer le programme immédiatement
         sudo systemctl start virusdetector.service
-
     - Mon fichier virusdetector.service :
         [Unit]
         Description=Service de détection de virus sur clé USB
         After=network.target
-
         [Service]
         # Dossier de travail (très important pour qu'il trouve ton Config.ini)
         WorkingDirectory=/opt/VirusDetector/
-
         # Le chemin exact vers ton exécutable
         ExecStart=/opt/VirusDetector/VirusDetector
-
         # Redémarrer automatiquement en cas de crash
         Restart=always
         # Attendre 3 secondes avant de redémarrer pour éviter de surcharger le système en cas d'erreur en boucle
         RestartSec=3
-
         # Lancer avec les droits root (nécessaire pour libusb et mount)
         User=root
-
         # Lancer automatiquement au démarrage de l'ordinateur
         WantedBy=multi-user.target
     - Pour vérifier que le service fonctionne :
@@ -134,6 +126,7 @@ Pour le Cron :
 Pour les MAJ des scanner :
     -ClamAV : commande freshclam
     -Trellix : 
+
         cd /tmp
 
         wget http://update.nai.com/products/commonupdater/avvdat-9999.zip -O avvdat.zip
@@ -148,7 +141,6 @@ Pour les MAJ des scanner :
 
 Pour Trelllix le scan se fait avec :
     uvscan --secure -r --summary --move <quarantine_dir> <target_dir>
-
     options :
     - --secure = fait l'option --analyse et --unzip
     - -r = récursif, entre dans chaque dossier et sous dossier
@@ -172,7 +164,6 @@ Ouvrir un fichier ini en C :
 
 Pour ClamAV le scan se fait avec :
     clamdscan [*options*] [*file/directory/-*]
-
     options :
     - --recursive --> analyse tout les dossier et sous dossier
     - --bell = sound bell on virus detection --> Fait un son lors de la détection de virus
