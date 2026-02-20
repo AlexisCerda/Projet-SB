@@ -111,7 +111,7 @@ Voici quelques explications et rappels sur les méthodes utilisées durant ce pr
    sudo systemctl start virusdetector.service
    ```
 
-**Fichier de configuration** :
+**Fichier de service** :
 
 ```ini
 [Unit]
@@ -207,6 +207,21 @@ gethostname(hostname_array, size);
   ini_parse(filename, handler, &config_struct);
   ```
 - Paramètres : nom du fichier, handler, pointeur vers la structure de configuration
+### Model de Config.ini
+
+    mail_sender = mon@mail
+    pwd_app_sender = "motdepassedapplication"
+    mail_smtp_server = "smtp.gmail.com" (pour gmail)
+    mail_smtp_port = 587 (pour gmail)
+    mail_smtp_auth = "true"
+    mail_smtp_starttls_enable = "true"
+    mail_recever = mail@admin, mail@admin2
+    Nb_mail_recever = 2
+    mail_subject = "sujet"
+    mail_body = "cotenu
+    path_quarantine = "path/dossier de quarantaine"
+    path_mount_point = "path/dossier de montage"
+    Buffer_size = taille des buffer (1024)
 
 ### Scan avec ClamAV
 
