@@ -50,6 +50,30 @@ int envoie_mail(configuration* config) {
     return 0;
 }
 
+// Envoie une notification desktop via notify-send en utilisant le bus D-Bus de l'utilisateur graphique
+// Fonctionne même depuis root grâce à la lecture de /proc/<pid>/environ
+void send_notification(const char* title, const char* message, const char* urgency) {
+    char cmd[BUFFER_SIZE * 4];
+    // On cherche le PID d'un processus de session graphique de l'utilisateur pour lire son D-Bus
+    snprintf(cmd, sizeof(cmd),
+        "GUI_USER=$(loginctl list-users --no-legend | awk '{print $2}' | head -n 1); "
+        "GUI_PID=$(pgrep -u \"$GUI_USER\" -x gnome-session 2>/dev/null "
+        "|| pgrep -u \"$GUI_USER\" -x plasmashell 2>/dev/null "
+        "|| pgrep -u \"$GUI_USER\" -x xfce4-session 2>/dev/null "
+        "|| pgrep -u \"$GUI_USER\" -x openbox 2>/dev/null "
+        "|| pgrep -u \"$GUI_USER\" dbus-daemon 2>/dev/null | head -n 1); "
+        "if [ -z \"$GUI_PID\" ]; then echo '[INFO] Aucune session graphique détectée.'; exit 0; fi; "
+        "DBUS=$(tr '\\0' '\\n' < /proc/$GUI_PID/environ 2>/dev/null | grep '^DBUS_SESSION_BUS_ADDRESS=' | cut -d= -f2-); "
+        "if [ -z \"$DBUS\" ]; then "
+        "  DBUS=$(ls /run/user/$(id -u $GUI_USER)/bus 2>/dev/null && echo unix:path=/run/user/$(id -u $GUI_USER)/bus); "
+        "fi; "
+        "if [ ! -z \"$DBUS\" ]; then "
+        "  sudo -u $GUI_USER DBUS_SESSION_BUS_ADDRESS=\"$DBUS\" notify-send --urgency=%s '%s' '%s'; "
+        "else echo '[INFO] D-Bus introuvable, notification ignorée.'; fi",
+        urgency, title, message);
+    system(cmd);
+}
+
 void Scan_part(char* quarantine_path, char* mount_point, char** Mail ){
     
     char cmd_scan[BUFFER_SIZE*2]; //commande du scan de ClamAV
@@ -77,65 +101,9 @@ void Scan_part(char* quarantine_path, char* mount_point, char** Mail ){
         }
         envoie_mail(&config);
 
-        char cmd_popup[BUFFER_SIZE * 2];
-        
-        // 1. GUI_USER=$(who | head -n 1 | awk '{print $1}') -> Récupère le nom du premier utilisateur connecté.
-        // 2. sudo -u $GUI_USER -> Lance l'interface avec ce compte utilisateur.
-        // 3. DISPLAY=:0 -> Force l'affichage sur l'écran principal.
-        // Commande améliorée pour détecter l'utilisateur graphique réel
-        // Vérifie qu'un écran graphique est disponible avant de lancer zenity
-        // (évite le GTK warning "cannot open display" sur TTY)
-        // Récupère DISPLAY et XAUTHORITY depuis l'environnement réel du processus de l'utilisateur graphique
-        // (sudo ne propage pas $DISPLAY, donc on lit /proc/<pid>/environ directement)
-        const char *cmd_template =
-            "GUI_USER=$(loginctl list-users --no-legend | awk '{print $2}' | head -n 1); "
-            "GUI_PID=$(pgrep -u \"$GUI_USER\" -x gnome-session 2>/dev/null "
-            "|| pgrep -u \"$GUI_USER\" -x plasmashell 2>/dev/null "
-            "|| pgrep -u \"$GUI_USER\" -x xfce4-session 2>/dev/null "
-            "|| pgrep -u \"$GUI_USER\" Xorg 2>/dev/null | head -n 1); "
-            "if [ ! -z \"$GUI_PID\" ]; then "
-            "  XDISPLAY=$(tr '\\0' '\\n' < /proc/$GUI_PID/environ 2>/dev/null | grep '^DISPLAY=' | cut -d= -f2); "
-            "  XAUTHORITY=$(tr '\\0' '\\n' < /proc/$GUI_PID/environ 2>/dev/null | grep '^XAUTHORITY=' | cut -d= -f2); "
-            "  WDISPLAY=$(tr '\\0' '\\n' < /proc/$GUI_PID/environ 2>/dev/null | grep '^WAYLAND_DISPLAY=' | cut -d= -f2); "
-            "fi; "
-            "if [ -z \"$XAUTHORITY\" ]; then XAUTHORITY=/home/$GUI_USER/.Xauthority; fi; "
-            "if [ -z \"$XDISPLAY\" ]; then XDISPLAY=:0; fi; "
-            "if [ ! -z \"$GUI_USER\" ]; then "
-            "  sudo -u $GUI_USER DISPLAY=$XDISPLAY XAUTHORITY=$XAUTHORITY zenity %s "
-            "  --title='%s' --text='%s' --width=300 & "
-            "else echo '[INFO] Aucun utilisateur graphique trouvé, popup ignorée.'; "
-            "fi";
-
-        char cmd_final[BUFFER_SIZE * 3];
-        snprintf(cmd_final, sizeof(cmd_final), cmd_template,
-                "--warning",
-                "Alerte Sécurité !",
-                "Un virus a été détecté et mis en quarantaine.");
-
-        system(cmd_final);
+        send_notification("Alerte Sécurité !", "Un virus a été détecté et mis en quarantaine.", "critical");
     } else {
-        char cmd_popup_ok[BUFFER_SIZE * 4];
-
-        snprintf(cmd_popup_ok, sizeof(cmd_popup_ok),
-                 "GUI_USER=$(loginctl list-users --no-legend | awk '{print $2}' | head -n 1); "
-                 "GUI_PID=$(pgrep -u \"$GUI_USER\" -x gnome-session 2>/dev/null "
-                 "|| pgrep -u \"$GUI_USER\" -x plasmashell 2>/dev/null "
-                 "|| pgrep -u \"$GUI_USER\" -x xfce4-session 2>/dev/null "
-                 "|| pgrep -u \"$GUI_USER\" Xorg 2>/dev/null | head -n 1); "
-                 "if [ ! -z \"$GUI_PID\" ]; then "
-                 "  XDISPLAY=$(tr '\\0' '\\n' < /proc/$GUI_PID/environ 2>/dev/null | grep '^DISPLAY=' | cut -d= -f2); "
-                 "  XAUTHORITY=$(tr '\\0' '\\n' < /proc/$GUI_PID/environ 2>/dev/null | grep '^XAUTHORITY=' | cut -d= -f2); "
-                 "fi; "
-                 "if [ -z \"$XAUTHORITY\" ]; then XAUTHORITY=/home/$GUI_USER/.Xauthority; fi; "
-                 "if [ -z \"$XDISPLAY\" ]; then XDISPLAY=:0; fi; "
-                 "if [ ! -z \"$GUI_USER\" ]; then "
-                 "  sudo -u $GUI_USER DISPLAY=$XDISPLAY XAUTHORITY=$XAUTHORITY zenity --info "
-                 "  --title='Analyse terminée' "
-                 "  --text='La clé USB a été analysée avec succès.\\nAucun virus détecté.' --width=300 & "
-                 "else echo '[INFO] Aucun utilisateur graphique trouvé, popup ignorée.'; "
-                 "fi");
-
-        system(cmd_popup_ok);
+        send_notification("Analyse terminée", "La clé USB a été analysée avec succès. Aucun virus détecté.", "normal");
     }
 
     system("sync");
