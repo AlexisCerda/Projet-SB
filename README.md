@@ -1,3 +1,5 @@
+https://github.com/AlexisCerda/Projet-SB
+
 # Projet SB - Station de Décontamination USB
 
 Ce projet est une solution de sécurité automatisée conçue pour détecter, scanner et nettoyer les périphériques USB dès leur insertion. Il combine un détecteur bas niveau en C, un moteur de mise à jour pour antivirus (ClamAV & Trellix), et un système de notification par email.
