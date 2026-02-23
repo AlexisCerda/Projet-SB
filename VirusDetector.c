@@ -85,38 +85,54 @@ void Scan_part(char* quarantine_path, char* mount_point, char** Mail ){
         // Commande améliorée pour détecter l'utilisateur graphique réel
         // Vérifie qu'un écran graphique est disponible avant de lancer zenity
         // (évite le GTK warning "cannot open display" sur TTY)
-        const char *cmd_template = 
-            "GUI_USER=$(loginctl list-users --no-legend | awk '{print $2}' | head -n 1); " // Récupère l'user actif
-            "X_AUTHORITY=$(ps -u $GUI_USER -o euser,args | grep -E 'Xorg|Xwayland' | grep -oP '(?<=-auth )[^ ]+' | head -n 1); "
-            "if [ -z \"$X_AUTHORITY\" ]; then X_AUTHORITY=/home/$GUI_USER/.Xauthority; fi; "
-            "XDISPLAY=$(sudo -u $GUI_USER -- sh -c 'echo $DISPLAY'); "
-            "WDISPLAY=$(sudo -u $GUI_USER -- sh -c 'echo $WAYLAND_DISPLAY'); "
-            "if [ ! -z \"$GUI_USER\" ] && { [ ! -z \"$XDISPLAY\" ] || [ ! -z \"$WDISPLAY\" ]; }; then "
-            "sudo -u $GUI_USER DISPLAY=:0 XAUTHORITY=$X_AUTHORITY zenity %s "
-            "--title='%s' --text='%s' --width=300 & "
-            "else echo '[INFO] Aucun écran graphique disponible, popup ignorée.'; "
+        // Récupère DISPLAY et XAUTHORITY depuis l'environnement réel du processus de l'utilisateur graphique
+        // (sudo ne propage pas $DISPLAY, donc on lit /proc/<pid>/environ directement)
+        const char *cmd_template =
+            "GUI_USER=$(loginctl list-users --no-legend | awk '{print $2}' | head -n 1); "
+            "GUI_PID=$(pgrep -u \"$GUI_USER\" -x gnome-session 2>/dev/null "
+            "|| pgrep -u \"$GUI_USER\" -x plasmashell 2>/dev/null "
+            "|| pgrep -u \"$GUI_USER\" -x xfce4-session 2>/dev/null "
+            "|| pgrep -u \"$GUI_USER\" Xorg 2>/dev/null | head -n 1); "
+            "if [ ! -z \"$GUI_PID\" ]; then "
+            "  XDISPLAY=$(tr '\\0' '\\n' < /proc/$GUI_PID/environ 2>/dev/null | grep '^DISPLAY=' | cut -d= -f2); "
+            "  XAUTHORITY=$(tr '\\0' '\\n' < /proc/$GUI_PID/environ 2>/dev/null | grep '^XAUTHORITY=' | cut -d= -f2); "
+            "  WDISPLAY=$(tr '\\0' '\\n' < /proc/$GUI_PID/environ 2>/dev/null | grep '^WAYLAND_DISPLAY=' | cut -d= -f2); "
+            "fi; "
+            "if [ -z \"$XAUTHORITY\" ]; then XAUTHORITY=/home/$GUI_USER/.Xauthority; fi; "
+            "if [ -z \"$XDISPLAY\" ]; then XDISPLAY=:0; fi; "
+            "if [ ! -z \"$GUI_USER\" ]; then "
+            "  sudo -u $GUI_USER DISPLAY=$XDISPLAY XAUTHORITY=$XAUTHORITY zenity %s "
+            "  --title='%s' --text='%s' --width=300 & "
+            "else echo '[INFO] Aucun utilisateur graphique trouvé, popup ignorée.'; "
             "fi";
 
         char cmd_final[BUFFER_SIZE * 3];
-        snprintf(cmd_final, sizeof(cmd_final), cmd_template, 
-                "--warning", 
-                "Alerte Sécurité !", 
+        snprintf(cmd_final, sizeof(cmd_final), cmd_template,
+                "--warning",
+                "Alerte Sécurité !",
                 "Un virus a été détecté et mis en quarantaine.");
 
         system(cmd_final);
     } else {
-        char cmd_popup_ok[BUFFER_SIZE * 2];
+        char cmd_popup_ok[BUFFER_SIZE * 4];
 
         snprintf(cmd_popup_ok, sizeof(cmd_popup_ok),
                  "GUI_USER=$(loginctl list-users --no-legend | awk '{print $2}' | head -n 1); "
-                 "X_AUTHORITY=$(ps -u $GUI_USER -o euser,args | grep -E 'Xorg|Xwayland' | grep -oP '(?<=-auth )[^ ]+' | head -n 1); "
-                 "if [ -z \"$X_AUTHORITY\" ]; then X_AUTHORITY=/home/$GUI_USER/.Xauthority; fi; "
-                 "XDISPLAY=$(sudo -u $GUI_USER -- sh -c 'echo $DISPLAY'); "
-                 "WDISPLAY=$(sudo -u $GUI_USER -- sh -c 'echo $WAYLAND_DISPLAY'); "
-                 "if [ ! -z \"$GUI_USER\" ] && { [ ! -z \"$XDISPLAY\" ] || [ ! -z \"$WDISPLAY\" ]; }; then "
-                 "sudo -u $GUI_USER DISPLAY=:0 XAUTHORITY=$X_AUTHORITY zenity --info --title='Analyse terminée' "
-                 "--text='La clé USB a été analysée avec succès.\\nAucun virus détecté.' --width=300 & "
-                 "else echo '[INFO] Aucun écran graphique disponible, popup ignorée.'; "
+                 "GUI_PID=$(pgrep -u \"$GUI_USER\" -x gnome-session 2>/dev/null "
+                 "|| pgrep -u \"$GUI_USER\" -x plasmashell 2>/dev/null "
+                 "|| pgrep -u \"$GUI_USER\" -x xfce4-session 2>/dev/null "
+                 "|| pgrep -u \"$GUI_USER\" Xorg 2>/dev/null | head -n 1); "
+                 "if [ ! -z \"$GUI_PID\" ]; then "
+                 "  XDISPLAY=$(tr '\\0' '\\n' < /proc/$GUI_PID/environ 2>/dev/null | grep '^DISPLAY=' | cut -d= -f2); "
+                 "  XAUTHORITY=$(tr '\\0' '\\n' < /proc/$GUI_PID/environ 2>/dev/null | grep '^XAUTHORITY=' | cut -d= -f2); "
+                 "fi; "
+                 "if [ -z \"$XAUTHORITY\" ]; then XAUTHORITY=/home/$GUI_USER/.Xauthority; fi; "
+                 "if [ -z \"$XDISPLAY\" ]; then XDISPLAY=:0; fi; "
+                 "if [ ! -z \"$GUI_USER\" ]; then "
+                 "  sudo -u $GUI_USER DISPLAY=$XDISPLAY XAUTHORITY=$XAUTHORITY zenity --info "
+                 "  --title='Analyse terminée' "
+                 "  --text='La clé USB a été analysée avec succès.\\nAucun virus détecté.' --width=300 & "
+                 "else echo '[INFO] Aucun utilisateur graphique trouvé, popup ignorée.'; "
                  "fi");
 
         system(cmd_popup_ok);
