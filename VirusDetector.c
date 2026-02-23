@@ -82,21 +82,30 @@ void Scan_part(char* quarantine_path, char* mount_point, char** Mail ){
         // 1. GUI_USER=$(who | head -n 1 | awk '{print $1}') -> Récupère le nom du premier utilisateur connecté.
         // 2. sudo -u $GUI_USER -> Lance l'interface avec ce compte utilisateur.
         // 3. DISPLAY=:0 -> Force l'affichage sur l'écran principal.
-        snprintf(cmd_popup, sizeof(cmd_popup), 
-                 "GUI_USER=$(who | head -n 1 | awk '{print $1}'); "
-                 "if [ ! -z \"$GUI_USER\" ]; then "
-                 "sudo -u $GUI_USER DISPLAY=:0 zenity --warning --title='Alerte Sécurité !' "
-                 "--text='Un virus a été détecté sur la clé USB et mis en quarantaine.' --width=300 & "
-                 "fi");
-                 
-        system(cmd_popup);
+        // Commande améliorée pour détecter l'utilisateur graphique réel
+        const char *cmd_template = 
+            "GUI_USER=$(loginctl list-users --no-legend | awk '{print $2}' | head -n 1); " // Récupère l'user actif
+            "X_AUTHORITY=$(ps -u $GUI_USER -o euser,args | grep -E 'Xorg|Xwayland' | grep -oP '(?<=-auth )[^ ]+' | head -n 1); "
+            "if [ -z \"$X_AUTHORITY\" ]; then X_AUTHORITY=/home/$GUI_USER/.Xauthority; fi; "
+            "if [ ! -z \"$GUI_USER\" ]; then "
+            "sudo -u $GUI_USER DISPLAY=:0 XAUTHORITY=$X_AUTHORITY zenity %s "
+            "--title='%s' --text='%s' --width=300 & "
+            "fi";
+
+        char cmd_final[BUFFER_SIZE * 3];
+        snprintf(cmd_final, sizeof(cmd_final), cmd_template, 
+                "--warning", 
+                "Alerte Sécurité !", 
+                "Un virus a été détecté et mis en quarantaine.");
+
+        system(cmd_final);
     } else {
         char cmd_popup_ok[BUFFER_SIZE * 2];
 
         snprintf(cmd_popup_ok, sizeof(cmd_popup_ok),
-                 "GUI_USER=$(who | head -n 1 | awk '{print $1}'); "
+                 "GUI_USER=$(loginctl list-users --no-legend | awk '{print $2}' | head -n 1); "
                  "if [ ! -z \"$GUI_USER\" ]; then "
-                 "sudo -u $GUI_USER DISPLAY=:0 zenity --info --title='Analyse terminée' "
+                 "sudo -u $GUI_USER DISPLAY=:0 XAUTHORITY=/home/$GUI_USER/.Xauthority zenity --info --title='Analyse terminée' "
                  "--text='La clé USB a été analysée avec succès.\\nAucun virus détecté.' --width=300 & "
                  "fi");
 
@@ -114,17 +123,12 @@ void monter_et_scanner() {
     char *Mail[] = MAIL;
 
     /*
-        ls -1 = liste une par ligne
-        /dev/disk/by-path/ = dosier que linux créer pour les devices
-        usb* = tous ce qui commence par usb
-        part* = tous ce qui représente une partition
-        2> = les code d'erreur
-        /dev/null = la corbeille
-        xargs -r readlink -f = convertit en chemin réel (ex: /dev/sda1)
-        sort -u = trie et supprime les doublons
+    1. find cherche dans by-id les raccourcis de type "lien" (-type l) nommés "usb-*-part*"
+    2. -exec readlink -f {} \; convertit ces raccourcis en vrais chemins (/dev/sdb1)
+    3. sort -u supprime les doublons
+    Cette méthode est insensible aux labels bizarres et cible 100% l'USB.
     */
-    const char *cmd_find = "ls -1 /dev/disk/by-path/*usb*part* 2>/dev/null | xargs -r readlink -f | sort -u"; 
-
+    const char *cmd_find = "find /dev/disk/by-id/ -type l -name 'usb-*-part*' -exec readlink -f {} \\; 2>/dev/null | sort -u";
     fp = popen(cmd_find, "r");
 
     if (fp == NULL) {
