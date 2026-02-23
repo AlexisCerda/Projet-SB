@@ -50,26 +50,42 @@ int envoie_mail(configuration* config) {
     return 0;
 }
 
-// Envoie une notification desktop via notify-send en utilisant le bus D-Bus de l'utilisateur graphique
-// Fonctionne même depuis root grâce à la lecture de /proc/<pid>/environ
+// Envoie une notification desktop via notify-send
+// Fonctionne depuis root en trouvant l'UID de l'utilisateur graphique via loginctl
+// et en utilisant directement /run/user/<uid>/bus comme socket D-Bus
 void send_notification(const char* title, const char* message, const char* urgency) {
     char cmd[BUFFER_SIZE * 4];
-    // On cherche le PID d'un processus de session graphique de l'utilisateur pour lire son D-Bus
     snprintf(cmd, sizeof(cmd),
-        "GUI_USER=$(loginctl list-users --no-legend | awk '{print $2}' | head -n 1); "
-        "GUI_PID=$(pgrep -u \"$GUI_USER\" -x gnome-session 2>/dev/null "
-        "|| pgrep -u \"$GUI_USER\" -x plasmashell 2>/dev/null "
-        "|| pgrep -u \"$GUI_USER\" -x xfce4-session 2>/dev/null "
-        "|| pgrep -u \"$GUI_USER\" -x openbox 2>/dev/null "
-        "|| pgrep -u \"$GUI_USER\" dbus-daemon 2>/dev/null | head -n 1); "
-        "if [ -z \"$GUI_PID\" ]; then echo '[INFO] Aucune session graphique détectée.'; exit 0; fi; "
-        "DBUS=$(tr '\\0' '\\n' < /proc/$GUI_PID/environ 2>/dev/null | grep '^DBUS_SESSION_BUS_ADDRESS=' | cut -d= -f2-); "
-        "if [ -z \"$DBUS\" ]; then "
-        "  DBUS=$(ls /run/user/$(id -u $GUI_USER)/bus 2>/dev/null && echo unix:path=/run/user/$(id -u $GUI_USER)/bus); "
+        // 1. Trouve l'utilisateur graphique connecté (premier de la liste loginctl)
+        "GUI_USER=$(loginctl list-sessions --no-legend 2>/dev/null "
+        "  | awk '{print $3}' | grep -v '^root$' | head -n 1); "
+        "if [ -z \"$GUI_USER\" ]; then "
+        "  GUI_USER=$(who | awk '{print $1}' | grep -v '^root$' | head -n 1); "
         "fi; "
-        "if [ ! -z \"$DBUS\" ]; then "
-        "  sudo -u $GUI_USER DBUS_SESSION_BUS_ADDRESS=\"$DBUS\" notify-send --urgency=%s '%s' '%s'; "
-        "else echo '[INFO] D-Bus introuvable, notification ignorée.'; fi",
+        "if [ -z \"$GUI_USER\" ]; then echo '[INFO] Aucun utilisateur graphique trouvé.'; exit 0; fi; "
+        // 2. Récupère son UID
+        "GUI_UID=$(id -u \"$GUI_USER\" 2>/dev/null); "
+        "if [ -z \"$GUI_UID\" ]; then echo '[INFO] UID introuvable.'; exit 0; fi; "
+        // 3. Construit l'adresse D-Bus via /run/user/<uid>/bus (standard systemd/logind)
+        "DBUS_ADDR=\"unix:path=/run/user/$GUI_UID/bus\"; "
+        "if [ ! -S \"/run/user/$GUI_UID/bus\" ]; then "
+        // Fallback: cherche dans /proc/<pid>/environ d'un processus de l'utilisateur
+        "  GUI_PID=$(pgrep -u \"$GUI_USER\" -x gnome-session 2>/dev/null "
+        "    || pgrep -u \"$GUI_USER\" -x plasmashell 2>/dev/null "
+        "    || pgrep -u \"$GUI_USER\" -x xfce4-session 2>/dev/null "
+        "    || pgrep -u \"$GUI_USER\" dbus-daemon 2>/dev/null | head -n 1); "
+        "  DBUS_ADDR=$(tr '\\0' '\\n' < /proc/$GUI_PID/environ 2>/dev/null "
+        "    | grep '^DBUS_SESSION_BUS_ADDRESS=' | cut -d= -f2-); "
+        "fi; "
+        "if [ -z \"$DBUS_ADDR\" ]; then echo '[INFO] D-Bus introuvable, notification ignorée.'; exit 0; fi; "
+        // 4. Récupère le DISPLAY de l'utilisateur (pour les sessions X11)
+        "DISPLAY_VAR=$(sudo -u \"$GUI_USER\" printenv DISPLAY 2>/dev/null || echo ':0'); "
+        // 5. Lance notify-send en tant que l'utilisateur graphique avec le bon D-Bus
+        "sudo -u \"$GUI_USER\" \\\n"
+        "  DBUS_SESSION_BUS_ADDRESS=\"$DBUS_ADDR\" \\\n"
+        "  DISPLAY=\"$DISPLAY_VAR\" \\\n"
+        "  notify-send --urgency=%s '%s' '%s' 2>/dev/null "
+        "  || echo '[INFO] notify-send a échoué (session graphique inactive?)'",
         urgency, title, message);
     system(cmd);
 }
