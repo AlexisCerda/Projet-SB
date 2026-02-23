@@ -83,13 +83,18 @@ void Scan_part(char* quarantine_path, char* mount_point, char** Mail ){
         // 2. sudo -u $GUI_USER -> Lance l'interface avec ce compte utilisateur.
         // 3. DISPLAY=:0 -> Force l'affichage sur l'écran principal.
         // Commande améliorée pour détecter l'utilisateur graphique réel
+        // Vérifie qu'un écran graphique est disponible avant de lancer zenity
+        // (évite le GTK warning "cannot open display" sur TTY)
         const char *cmd_template = 
             "GUI_USER=$(loginctl list-users --no-legend | awk '{print $2}' | head -n 1); " // Récupère l'user actif
             "X_AUTHORITY=$(ps -u $GUI_USER -o euser,args | grep -E 'Xorg|Xwayland' | grep -oP '(?<=-auth )[^ ]+' | head -n 1); "
             "if [ -z \"$X_AUTHORITY\" ]; then X_AUTHORITY=/home/$GUI_USER/.Xauthority; fi; "
-            "if [ ! -z \"$GUI_USER\" ]; then "
+            "XDISPLAY=$(sudo -u $GUI_USER -- sh -c 'echo $DISPLAY'); "
+            "WDISPLAY=$(sudo -u $GUI_USER -- sh -c 'echo $WAYLAND_DISPLAY'); "
+            "if [ ! -z \"$GUI_USER\" ] && { [ ! -z \"$XDISPLAY\" ] || [ ! -z \"$WDISPLAY\" ]; }; then "
             "sudo -u $GUI_USER DISPLAY=:0 XAUTHORITY=$X_AUTHORITY zenity %s "
             "--title='%s' --text='%s' --width=300 & "
+            "else echo '[INFO] Aucun écran graphique disponible, popup ignorée.'; "
             "fi";
 
         char cmd_final[BUFFER_SIZE * 3];
@@ -104,9 +109,14 @@ void Scan_part(char* quarantine_path, char* mount_point, char** Mail ){
 
         snprintf(cmd_popup_ok, sizeof(cmd_popup_ok),
                  "GUI_USER=$(loginctl list-users --no-legend | awk '{print $2}' | head -n 1); "
-                 "if [ ! -z \"$GUI_USER\" ]; then "
-                 "sudo -u $GUI_USER DISPLAY=:0 XAUTHORITY=/home/$GUI_USER/.Xauthority zenity --info --title='Analyse terminée' "
+                 "X_AUTHORITY=$(ps -u $GUI_USER -o euser,args | grep -E 'Xorg|Xwayland' | grep -oP '(?<=-auth )[^ ]+' | head -n 1); "
+                 "if [ -z \"$X_AUTHORITY\" ]; then X_AUTHORITY=/home/$GUI_USER/.Xauthority; fi; "
+                 "XDISPLAY=$(sudo -u $GUI_USER -- sh -c 'echo $DISPLAY'); "
+                 "WDISPLAY=$(sudo -u $GUI_USER -- sh -c 'echo $WAYLAND_DISPLAY'); "
+                 "if [ ! -z \"$GUI_USER\" ] && { [ ! -z \"$XDISPLAY\" ] || [ ! -z \"$WDISPLAY\" ]; }; then "
+                 "sudo -u $GUI_USER DISPLAY=:0 XAUTHORITY=$X_AUTHORITY zenity --info --title='Analyse terminée' "
                  "--text='La clé USB a été analysée avec succès.\\nAucun virus détecté.' --width=300 & "
+                 "else echo '[INFO] Aucun écran graphique disponible, popup ignorée.'; "
                  "fi");
 
         system(cmd_popup_ok);
