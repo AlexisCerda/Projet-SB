@@ -84,7 +84,6 @@ smtp_port=587
 ##  Tests
 
 Pour tester si l'antivirus marche correctement utilisez eicar
-Rappel le programme dois être appelé avec un sudo
 
 ##  Explication des fonctionnalités
 
