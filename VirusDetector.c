@@ -90,6 +90,17 @@ void Scan_part(char* quarantine_path, char* mount_point, char** Mail ){
                  "fi");
                  
         system(cmd_popup);
+    } else {
+        char cmd_popup_ok[BUFFER_SIZE * 2];
+
+        snprintf(cmd_popup_ok, sizeof(cmd_popup_ok),
+                 "GUI_USER=$(who | head -n 1 | awk '{print $1}'); "
+                 "if [ ! -z \"$GUI_USER\" ]; then "
+                 "sudo -u $GUI_USER DISPLAY=:0 zenity --info --title='Analyse terminée' "
+                 "--text='La clé USB a été analysée avec succès.\\nAucun virus détecté.' --width=300 & "
+                 "fi");
+
+        system(cmd_popup_ok);
     }
 
     system("sync");
