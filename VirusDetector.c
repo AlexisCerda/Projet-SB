@@ -312,11 +312,8 @@ int main() {
     if (ini_parse("Config.ini", handler, &config) < 0) {
         printf("Impossible de charger 'Config.ini'\n");
         return 1;
-    }
-
-    envoie_mail(&config); // envoie un mail de test pour vérifier que la configuration est correcte
+    }    
     
-    /*
     if (MAJ_scanner() == 1){
         exit(1);
     }
@@ -347,6 +344,6 @@ int main() {
     }
     
     libusb_exit(ctx);
-    */
+    
     return 0;
 }
