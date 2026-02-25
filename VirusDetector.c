@@ -11,7 +11,6 @@
 #define BUFFER_SIZE 1024
 #define MOUNT_POINT "/mnt/analyse_usb"
 #define QUARANTINE "/quarantine"
-#define MAIL {"alexis.cerdadealmeida@gmail.com","khaosprive88@gmail.com"}
 #define NB_MAIL 2
 #define DELIMITER "\n======================================================\n"
 
@@ -130,7 +129,7 @@ void monter_et_scanner() {
     char device_node[BUFFER_SIZE] = ""; //chemin de la partition de la clé
     char mount_point[] = MOUNT_POINT; //dossier dans lequel on vas monter la clé
     char quarantine_path[] = QUARANTINE; //dossier de quarantaine
-    char *Mail[] = MAIL;
+    char *Mail[] = config.mail_recever; //liste des mail recever
 
     /*
     1. find cherche dans by-id les raccourcis de type "lien" (-type l) nommés "usb-*-part*"
