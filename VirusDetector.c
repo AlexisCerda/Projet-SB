@@ -11,7 +11,6 @@
 #define BUFFER_SIZE 1024
 #define MOUNT_POINT "/mnt/analyse_usb"
 #define QUARANTINE "/quarantine"
-#define NB_MAIL 2
 #define DELIMITER "\n======================================================\n"
 
 typedef struct {
@@ -31,6 +30,7 @@ typedef struct {
 } configuration;
 
 configuration config;
+
 
 int envoie_mail(configuration* config) {
     char hostname[BUFFER_SIZE];
@@ -111,7 +111,7 @@ void Scan_part(char* quarantine_path, char* mount_point, char** Mail ){
 
     if(WEXITSTATUS(resultatTrellix) ==1 || WEXITSTATUS(resultatClamAV) ==1){
         printf("%sVirus détecter envoye de mail à %s", DELIMITER, DELIMITER);
-        for (size_t i = 0; i < NB_MAIL; i++){
+        for (size_t i = 0; i < config.nb_mail_recever; i++){
             printf("-%s \n",Mail[i]);
         }
         envoie_mail(&config);
@@ -129,7 +129,7 @@ void monter_et_scanner() {
     char device_node[BUFFER_SIZE] = ""; //chemin de la partition de la clé
     char mount_point[] = MOUNT_POINT; //dossier dans lequel on vas monter la clé
     char quarantine_path[] = QUARANTINE; //dossier de quarantaine
-    char *Mail[] = config.mail_recever; //liste des mail recever
+    char **Mail = config.mail_recever; //liste des mail recever
 
     /*
     1. find cherche dans by-id les raccourcis de type "lien" (-type l) nommés "usb-*-part*"
@@ -316,6 +316,7 @@ int main() {
 
     envoie_mail(&config); // envoie un mail de test pour vérifier que la configuration est correcte
     
+    /*
     if (MAJ_scanner() == 1){
         exit(1);
     }
@@ -346,5 +347,6 @@ int main() {
     }
     
     libusb_exit(ctx);
+    */
     return 0;
 }
