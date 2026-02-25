@@ -39,7 +39,7 @@ int envoie_mail(configuration* config) {
     gethostname(hostname, sizeof(hostname)); //récupère le nom de la machine et le met dans hostname
 
     for (int i = 0; i < config->nb_mail_recever; i++) {
-        snprintf(cmd, sizeof(cmd), "java -jar mail.jar %s %s %s \"%i\" %s %s %s %s %s %s\" ", // ouverture du fichier java avec tous les paramètres nécessaire pour envoyer le mail
+        snprintf(cmd, sizeof(cmd), "java -Djava.net.preferIPv4Stack=true -jar mail.jar %s %s %s \"%i\" %s %s %s %s %s %s\" ", // ouverture du fichier java avec tous les paramètres nécessaire pour envoyer le mail
         config->mail_sender, config->pwd_app_sender, config->mail_smtp_server, config->mail_smtp_port, config->mail_smtp_auth, config->mail_smtp_starttls_enable, config->mail_recever[i], config->mail_subject, config->mail_body, hostname);
         int result = system(cmd); // execute la commande cmd
 
@@ -293,7 +293,7 @@ int MAJ_scanner(){
 
 int main() {
     setvbuf(stdout, NULL, _IONBF, 0);
-
+    
     // Valeurs par défaut
     config.mail_sender = NULL;
     config.pwd_app_sender = NULL;
@@ -315,6 +315,7 @@ int main() {
         return 1;
     }
 
+    envoie_mail(&config); // envoie un mail de test pour vérifier que la configuration est correcte
     
     if (MAJ_scanner() == 1){
         exit(1);
