@@ -52,6 +52,7 @@ int envoie_mail(configuration* config) {
 // Envoie une notification desktop via notify-send
 // Fonctionne depuis root en trouvant l'UID de l'utilisateur graphique via loginctl
 // et en utilisant directement /run/user/<uid>/bus comme socket D-Bus
+// Utilise --replace-id pour remplacer automatiquement la notification précédente
 void send_notification(const char* title, const char* message, const char* urgency) {
     char cmd[BUFFER_SIZE * 4];
     snprintf(cmd, sizeof(cmd),
@@ -79,11 +80,11 @@ void send_notification(const char* title, const char* message, const char* urgen
         "if [ -z \"$DBUS_ADDR\" ]; then echo '[INFO] D-Bus introuvable, notification ignorée.'; exit 0; fi; "
         // 4. Récupère le DISPLAY de l'utilisateur (pour les sessions X11)
         "DISPLAY_VAR=$(sudo -u \"$GUI_USER\" printenv DISPLAY 2>/dev/null || echo ':0'); "
-        // 5. Lance notify-send en tant que l'utilisateur graphique avec le bon D-Bus
+        // 5. Lance notify-send avec --replace-id=999 pour remplacer la notification précédente
         "sudo -u \"$GUI_USER\" \\\n"
         "  DBUS_SESSION_BUS_ADDRESS=\"$DBUS_ADDR\" \\\n"
         "  DISPLAY=\"$DISPLAY_VAR\" \\\n"
-        "  notify-send --urgency=%s '%s' '%s' 2>/dev/null "
+        "  notify-send --urgency=%s --replace-id=999 '%s' '%s' 2>/dev/null "
         "  || echo '[INFO] notify-send a échoué (session graphique inactive?)'",
         urgency, title, message);
     system(cmd);
