@@ -50,7 +50,7 @@ int envoie_mail(configuration* config) {
 }
 
 // Affiche une interface graphique simple pour les messages de notification
-// Utilise Python/tkinter pour une compatibilité maximale sur Debian
+// Utilise un script Python externe pour une meilleure fiabilité
 void send_notification(const char* title, const char* message, const char* urgency) {
     char cmd[BUFFER_SIZE * 4];
     
@@ -59,23 +59,7 @@ void send_notification(const char* title, const char* message, const char* urgen
         "if [ -z \"$GUI_USER\" ]; then GUI_USER=$(who | awk '{print $1}' | grep -v '^root$' | head -n 1); fi; "
         "if [ -z \"$GUI_USER\" ]; then echo '[INFO] Aucun utilisateur graphique trouvé.'; exit 0; fi; "
         "DISPLAY_VAR=$(sudo -u \"$GUI_USER\" printenv DISPLAY 2>/dev/null || echo ':0'); "
-        "sudo -u \"$GUI_USER\" DISPLAY=\"$DISPLAY_VAR\" python3 -c \""
-        "import tkinter as tk; "
-        "from tkinter import scrolledtext; "
-        "import os; "
-        "logfile = '/tmp/virusdetector_log.txt'; "
-        "with open(logfile, 'a') as f: f.write('[' + __import__('time').strftime('%%Y-%%m-%%d %%H:%%M:%%S') + '] %s: %s\\n'); "
-        "root = tk.Tk(); "
-        "root.title('VirusDetector - Notifications'); "
-        "root.geometry('500x300'); "
-        "text = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=60, height=15); "
-        "text.pack(expand=True, fill='both', padx=10, pady=10); "
-        "if os.path.exists(logfile): "
-        "    with open(logfile, 'r') as f: text.insert(tk.END, f.read()); "
-        "text.see(tk.END); "
-        "text.config(state=tk.DISABLED); "
-        "root.after(5000, root.destroy); "
-        "root.mainloop()\" 2>/dev/null &",
+        "sudo -u \"$GUI_USER\" DISPLAY=\"$DISPLAY_VAR\" python3 ./notification_gui.py '%s' '%s' &",
         title, message);
     system(cmd);
 }
