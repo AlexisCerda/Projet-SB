@@ -188,7 +188,7 @@ void monter_et_scanner() {
             printf("Impossible de monter la partition. Passage à la suivante...\n");
             continue; 
         }
-        send_notification("Analyse en cours", "La clé USB a été détectée analyse d'une partition", "normal");
+        send_notification("Analyse en cours", "La clé USB a été détectée", "normal");
         printf("Montage réussi dans : %s\n", mount_point);
 
 
