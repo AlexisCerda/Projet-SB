@@ -189,7 +189,7 @@ void monter_et_scanner() {
             continue; 
         }
         printf("Montage réussi dans : %s\n", mount_point);
-        send_notification("Analyse en cours", "La TEST", "normal");
+        send_notification("Analyse en cours", "La clé USB a été détectée, analyse d'une partition", "normal");
 
 
         // ### Scan de la partition et envoie de mail si virus détecté ###
