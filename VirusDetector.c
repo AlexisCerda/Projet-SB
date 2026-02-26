@@ -49,13 +49,15 @@ int envoie_mail(configuration* config) {
     return 0;
 }
 
-// Affiche une interface graphique simple pour les messages de notification
-// Utilise un script Python externe pour une meilleure fiabilité
-void send_notification(const char* title, const char* message, const char* urgency) {
+// Système de notification avec fenêtre unique
+// START : démarre une nouvelle fenêtre (efface l'historique)
+// MSG : ajoute un message à la fenêtre existante
+// CLOSE : ferme la fenêtre après 5 secondes
+
+void execute_notification_cmd(const char* cmd_type, const char* title, const char* message) {
     char cmd[BUFFER_SIZE * 4];
     char script_path[BUFFER_SIZE];
     
-    // Obtenir le répertoire du programme en cours
     snprintf(script_path, sizeof(script_path), "%s/notification_gui.py", getenv("PWD") ? getenv("PWD") : ".");
     
     snprintf(cmd, sizeof(cmd),
@@ -63,9 +65,24 @@ void send_notification(const char* title, const char* message, const char* urgen
         "if [ -z \"$GUI_USER\" ]; then GUI_USER=$(who | awk '{print $1}' | grep -v '^root$' | head -n 1); fi; "
         "if [ -z \"$GUI_USER\" ]; then echo '[INFO] Aucun utilisateur graphique trouvé.'; exit 0; fi; "
         "DISPLAY_VAR=$(sudo -u \"$GUI_USER\" printenv DISPLAY 2>/dev/null || echo ':0'); "
-        "sudo -u \"$GUI_USER\" DISPLAY=\"$DISPLAY_VAR\" python3 \"%s\" '%s' '%s' &",
-        script_path, title, message);
+        "sudo -u \"$GUI_USER\" DISPLAY=\"$DISPLAY_VAR\" python3 \"%s\" %s '%s' '%s' &",
+        script_path, cmd_type, title ? title : "", message ? message : "");
     system(cmd);
+}
+
+// Démarre une nouvelle fenêtre de notification (efface l'historique)
+void start_notification_window(const char* title, const char* message) {
+    execute_notification_cmd("START", title, message);
+}
+
+// Ajoute un message à la fenêtre existante
+void send_notification(const char* title, const char* message, const char* urgency) {
+    execute_notification_cmd("MSG", title, message);
+}
+
+// Ferme la fenêtre après 5 secondes
+void close_notification_window() {
+    execute_notification_cmd("CLOSE", NULL, NULL);
 }
 
 void Scan_part(char* quarantine_path, char* mount_point, char** Mail ){
@@ -167,7 +184,7 @@ void monter_et_scanner() {
             printf("Impossible de monter la partition. Passage à la suivante...\n");
             continue; 
         }
-        send_notification("Analyse en cours", "La clé USB a été détectée", "normal");
+        start_notification_window("Clé USB détectée", "Analyse en cours...");
         printf("Montage réussi dans : %s\n", mount_point);
 
 
@@ -183,6 +200,9 @@ void monter_et_scanner() {
         snprintf(cmd_umount, sizeof(cmd_umount), "umount \"%s\"", mount_point);
         system(cmd_umount); // exécute cmd_umount
         printf("Clé démontée\n");
+        
+        // Fermer la fenêtre de notification après 5 secondes
+        close_notification_window();
     } // Fin de la boucle while
 
     pclose(fp);
