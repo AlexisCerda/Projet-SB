@@ -53,14 +53,18 @@ int envoie_mail(configuration* config) {
 // Utilise un script Python externe pour une meilleure fiabilité
 void send_notification(const char* title, const char* message, const char* urgency) {
     char cmd[BUFFER_SIZE * 4];
+    char script_path[BUFFER_SIZE];
+    
+    // Obtenir le répertoire du programme en cours
+    snprintf(script_path, sizeof(script_path), "%s/notification_gui.py", getenv("PWD") ? getenv("PWD") : ".");
     
     snprintf(cmd, sizeof(cmd),
         "GUI_USER=$(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $3}' | grep -v '^root$' | head -n 1); "
         "if [ -z \"$GUI_USER\" ]; then GUI_USER=$(who | awk '{print $1}' | grep -v '^root$' | head -n 1); fi; "
         "if [ -z \"$GUI_USER\" ]; then echo '[INFO] Aucun utilisateur graphique trouvé.'; exit 0; fi; "
         "DISPLAY_VAR=$(sudo -u \"$GUI_USER\" printenv DISPLAY 2>/dev/null || echo ':0'); "
-        "sudo -u \"$GUI_USER\" DISPLAY=\"$DISPLAY_VAR\" python3 ./notification_gui.py '%s' '%s' &",
-        title, message);
+        "sudo -u \"$GUI_USER\" DISPLAY=\"$DISPLAY_VAR\" python3 \"%s\" '%s' '%s' &",
+        script_path, title, message);
     system(cmd);
 }
 
