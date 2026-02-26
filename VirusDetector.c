@@ -95,8 +95,8 @@ void Scan_part(char* quarantine_path, char* mount_point, char** Mail ){
     /*
         clamscan est la commande pour lancer l'analyse
         -r (récursif) entre dans chaque dossier et sous dossier
-        --bell = fait un bip sonor quand un virus est détecté 
-        --move = si un virus est détecter alors il le déplace à l'endrois en paramètre
+        --bell = fait un bip sonore quand un virus est détecté 
+        --move = si un virus est détecté alors il le déplace à l'endroit en paramètre
         %s est le chemin, mount_point et les \"  permet de mettre de vrai double quote sans qu'elle soit considéré par le langage C 
     */
     snprintf(cmd_scan, sizeof(cmd_scan), "clamscan -r --bell --move=\"%s\" \"%s\"", quarantine_path, mount_point); // enregistre dans cmd_scan la chaine de caractère
@@ -110,7 +110,7 @@ void Scan_part(char* quarantine_path, char* mount_point, char** Mail ){
     int resultatTrellix = system(cmd_scan); // lance le scan de Trellix et met en pause le programme
 
     if(WEXITSTATUS(resultatTrellix) ==1 || WEXITSTATUS(resultatClamAV) ==1){
-        printf("%sVirus détecter envoye de mail à %s", DELIMITER, DELIMITER);
+        printf("%sVirus détecté, envoi de mail à %s", DELIMITER, DELIMITER);
         for (size_t i = 0; i < config.nb_mail_recever; i++){
             printf("-%s \n",Mail[i]);
         }
@@ -168,7 +168,7 @@ void monter_et_scanner() {
         
         /*
             ntfsfix --> répare les partitions NTFS
-            -d = force le néttoyage de la partition même si elle est marquée comme propre
+            -d = force le nettoyage de la partition même si elle est marquée comme propre
             > = redirige la sortie standard vers un fichier ou un périphérique
             /dev/null = la corbeille
             >&1 : C'est la syntaxe Linux pour gérer les erreurs
@@ -180,7 +180,7 @@ void monter_et_scanner() {
         system(cmd_fix); 
         
         // -t auto : Linux détect(FAT32, NTFS, exFAT...)
-        // -o remove_hiberfile : enleve le verrou de windows
+        // -o remove_hiberfile : enlève le verrou de windows
         // -o rw : On force la lecture/écriture.
         snprintf(cmd_mount, sizeof(cmd_mount), "mount -o rw,sync \"%s\" \"%s\"", device_node, mount_point);
             
@@ -189,7 +189,7 @@ void monter_et_scanner() {
             continue; 
         }
         printf("Montage réussi dans : %s\n", mount_point);
-        send_notification("Analyse en cours", "La clé USB a été détecter", "normal");
+        send_notification("Analyse en cours", "La clé USB a été détectée, analyse d'une partition", "normal");
 
 
         // ### Scan de la partition et envoie de mail si virus détecté ###
@@ -215,7 +215,7 @@ int hotplug_callback(libusb_context *ctx, libusb_device *dev, libusb_hotplug_eve
     struct libusb_device_descriptor desc;  //description du device
     libusb_get_device_descriptor(dev, &desc); // donne la description du device et la met dans dev
     
-    printf("\nNew Device detect (VID:%04x PID:%04x)\n", desc.idVendor, desc.idProduct);
+    printf("\nNew Device detected (VID:%04x PID:%04x)\n", desc.idVendor, desc.idProduct);
     
     printf("Initialisation du périphérique (5 secondes)...\n");
     sleep(5); //attend 5 seconde
@@ -332,7 +332,7 @@ int main() {
     }
 
     //Mise en place du callback
-    //Prend tout les nouveaux devices et c'est le cmd_find qui fait le trie
+    //Prend tout les nouveaux devices et c'est le cmd_find qui fait le tri
     libusb_hotplug_register_callback(ctx, LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED, 0, 
                                      LIBUSB_HOTPLUG_MATCH_ANY, LIBUSB_HOTPLUG_MATCH_ANY, 
                                      LIBUSB_HOTPLUG_MATCH_ANY, hotplug_callback, NULL, &handle);
