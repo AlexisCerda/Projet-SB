@@ -6,15 +6,21 @@ import os
 from datetime import datetime
 
 def show_notification(title, message):
-    # Fichier de log
-    logfile = '/tmp/virusdetector_log.txt'
+    # Utiliser un fichier log dans le répertoire home de l'utilisateur pour éviter les problèmes de permissions
+    home_dir = os.path.expanduser("~")
+    logfile = os.path.join(home_dir, '.virusdetector_log.txt')
     
     # Ajouter le message au log
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     log_entry = f"[{timestamp}] {title}: {message}\n"
     
-    with open(logfile, 'a') as f:
-        f.write(log_entry)
+    try:
+        with open(logfile, 'a') as f:
+            f.write(log_entry)
+        # Assurer les bonnes permissions (lecture/écriture pour tous)
+        os.chmod(logfile, 0o666)
+    except Exception as e:
+        print(f"[WARN] Impossible d'écrire dans le log: {e}")
     
     # Créer la fenêtre
     root = tk.Tk()
@@ -27,8 +33,14 @@ def show_notification(title, message):
     
     # Charger l'historique des logs
     if os.path.exists(logfile):
-        with open(logfile, 'r') as f:
-            text.insert(tk.END, f.read())
+        try:
+            with open(logfile, 'r') as f:
+                text.insert(tk.END, f.read())
+        except Exception as e:
+            text.insert(tk.END, f"Erreur de lecture du log: {e}\n\n")
+            text.insert(tk.END, log_entry)
+    else:
+        text.insert(tk.END, log_entry)
     
     # Scroller jusqu'à la fin
     text.see(tk.END)
