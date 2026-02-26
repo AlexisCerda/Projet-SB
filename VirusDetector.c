@@ -188,8 +188,8 @@ void monter_et_scanner() {
             printf("Impossible de monter la partition. Passage à la suivante...\n");
             continue; 
         }
-        printf("Montage réussi dans : %s\n", mount_point);
         send_notification("Analyse en cours", "La clé USB a été détectée analyse d'une partition", "normal");
+        printf("Montage réussi dans : %s\n", mount_point);
 
 
         // ### Scan de la partition et envoie de mail si virus détecté ###
