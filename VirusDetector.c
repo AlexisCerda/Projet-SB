@@ -65,7 +65,10 @@ void execute_notification_cmd(const char* cmd_type, const char* title, const cha
         "if [ -z \"$GUI_USER\" ]; then GUI_USER=$(who | awk '{print $1}' | grep -v '^root$' | head -n 1); fi; "
         "if [ -z \"$GUI_USER\" ]; then echo '[INFO] Aucun utilisateur graphique trouvé.'; exit 0; fi; "
         "DISPLAY_VAR=$(sudo -u \"$GUI_USER\" printenv DISPLAY 2>/dev/null || echo ':0'); "
-        "sudo -u \"$GUI_USER\" DISPLAY=\"$DISPLAY_VAR\" python3 \"%s\" %s '%s' '%s' &",
+        "XAUTHORITY_VAR=$(sudo -u \"$GUI_USER\" printenv XAUTHORITY 2>/dev/null); "
+        "if [ -z \"$XAUTHORITY_VAR\" ]; then XAUTHORITY_VAR=\"/home/$GUI_USER/.Xauthority\"; fi; "
+        "sudo -u \"$GUI_USER\" DISPLAY=\"$DISPLAY_VAR\" XAUTHORITY=\"$XAUTHORITY_VAR\" "
+        "python3 \"%s\" %s '%s' '%s' &",
         script_path, cmd_type, title ? title : "", message ? message : "");
     system(cmd);
 }

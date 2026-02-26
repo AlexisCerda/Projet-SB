@@ -14,9 +14,15 @@ class NotificationWindow:
         self.lockfile = os.path.join(self.home_dir, '.virusdetector_lock')
         self.commandfile = os.path.join(self.home_dir, '.virusdetector_cmd')
         self.close_timer = None
+        self.init_ok = False
         
-        # Créer la fenêtre
-        self.root = tk.Tk()
+        # Créer la fenêtre (peut echouer si pas de DISPLAY)
+        try:
+            self.root = tk.Tk()
+        except tk.TclError as exc:
+            print(f"[WARN] Interface graphique indisponible: {exc}")
+            self.running = False
+            return
         self.root.title("VirusDetector - Notifications")
         self.root.geometry("600x400")
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -37,6 +43,7 @@ class NotificationWindow:
         self.running = True
         self.watch_thread = threading.Thread(target=self.watch_commands, daemon=True)
         self.watch_thread.start()
+        self.init_ok = True
         
     def add_message(self, title, message):
         """Ajoute un message à la fenêtre et au log"""
@@ -51,6 +58,8 @@ class NotificationWindow:
             print(f"[WARN] Impossible d'écrire dans le log: {e}")
         
         # Ajouter à la fenêtre
+        if not self.init_ok:
+            return
         self.text.config(state=tk.NORMAL)
         self.text.insert(tk.END, log_entry)
         self.text.see(tk.END)
@@ -117,7 +126,8 @@ class NotificationWindow:
         self.root.destroy()
     
     def run(self):
-        self.root.mainloop()
+        if hasattr(self, "root"):
+            self.root.mainloop()
 
 def send_command(command):
     """Envoie une commande à la fenêtre existante"""
